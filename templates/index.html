@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            text-align: center;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        progress {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #download_button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Downloader</h1>
+        <input type="text" id="video_url" placeholder="Enter YouTube video URL">
+        <button id="start_download">Start Download</button>
+        <progress id="progress_bar" value="0" max="100" style="display: none;"></progress>
+        <p id="progress_text">Progress: 0%</p>
+        <button id="download_button" style="display: none;">Download Video</button>
+    </div>
+
+    <script>
+        document.getElementById('start_download').addEventListener('click', async () => {
+            const videoUrl = document.getElementById('video_url').value;
+            if (!videoUrl) {
+                alert('Please enter a valid YouTube URL.');
+                return;
+            }
+
+            const progressBar = document.getElementById('progress_bar');
+            const progressText = document.getElementById('progress_text');
+            const downloadButton = document.getElementById('download_button');
+            let downloadLink = null;
+
+            progressBar.style.display = 'block';
+            progressText.textContent = 'Progress: 0%';
+            progressBar.value = 0;
+            downloadButton.style.display = 'none';
+
+            try {
+                const response = await fetch('/start_download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_url: videoUrl })
+                });
+                const { video_id } = await response.json();
+
+                // Real-time progress updates
+                const interval = setInterval(async () => {
+                    const progressResponse = await fetch(`/progress/${video_id}`);
+                    const progressData = await progressResponse.json();
+                    if (progressResponse.ok) {
+                        progressBar.value = progressData.progress;
+                        progressText.textContent = `Progress: ${progressData.progress.toFixed(2)}%`;
+
+                        if (progressData.progress >= 100) {
+                            clearInterval(interval);
+                            progressText.textContent = 'Download Complete!';
+
+                            // Set download link
+                            downloadButton.style.display = 'block';
+                            downloadButton.onclick = () => {
+                                window.open(`/download/${video_id}`);
+                            };
+                        }
+                    } else {
+                        clearInterval(interval);
+                        alert(progressData.error || 'Error fetching progress.');
+                    }
+                }, 1000);
+            } catch (error) {
+                alert('An error occurred while starting the download.');
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
